@@ -1,22 +1,16 @@
-# https://survey-api-afkn.onrender.com/api/schema/swagger-ui/
+# https://survey-api-afkn.onrender.com/api/docs/
+import dj_database_url
 from pathlib import Path
 from datetime import timedelta
-import os
-import dj_database_url
+from decouple import config, Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Environment variables with defaults
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
+# Базовые настройки безопасности
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-# Динамическое определение ALLOWED_HOSTS
-if DEBUG:
-    ALLOWED_HOSTS = ['*']
-else:
-    # На production - конкретные хосты через переменную окружения или список по умолчанию
-    allowed_hosts_str = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1')
-    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_str.split(',')]
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 INSTALLED_APPS = [
     # Unfold ДОЛЖЕН быть ДО django.contrib.admin для переопределения админ-панели
@@ -72,22 +66,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'SurveyProject.wsgi.application'
 
-DATABASES = {}
-
-# Автоматическое переключение БД
-if os.getenv('DATABASE_URL'):
-    # Production: используем PostgreSQL через DATABASE_URL (Render, Heroku, и т.д.)
-    DATABASES['default'] = dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
+# База данных
+DATABASES = {
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
-        conn_health_checks=True,
     )
-else:
-    # Local development: используем SQLite
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -117,23 +102,16 @@ if not DEBUG:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ---- CORS ----
-if DEBUG:
-    # Local development:允许localhost
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-else:
-    # Production: получаем из переменной окружения
-    cors_origins_str = os.getenv('CORS_ALLOWED_ORIGINS', '')
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_str.split(',') if origin.strip()]
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS',
+ default='http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173',
+  cast=Csv())
 
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF settings для production
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173,http://localhost:3000').split(',') if not DEBUG else ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS',
+ default='http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173',
+  cast=Csv())
 
 # ---- REST FRAMEWORK ----
 REST_FRAMEWORK = {
